@@ -8,15 +8,37 @@
 
 import shlex
 
-def parse_command():
-    parts = shlex.split(input("> ")) 
-   # print()
-   # print(parts[0])  
-   # print(parts[1])  
-   # print(parts[2])
-   # print(parts[3])
+def parse_command(input_str):
+    try:
+        parts = shlex.split(input_str)
+    except ValueError:
+        return None
+    
+    if not parts:
+        return None
 
-    return parts[0], parts[1], parts[2], parts[3]
+    command = parts[0].upper()
+    args = []
+    options = {}
+    options_order = []
 
-command, input_1, option, input_2 = parse_command()
-print(f'Command: {command} Input1: {input_1} Option: {option} Input2: {input_2}')
+    current_option = None
+
+    for part in parts[1:]:
+        if part.startswith('-'):
+            current_option = part
+            options[current_option] = None
+            options_order.append(current_option)
+        else:
+            if current_option:
+                options[current_option] = part
+                current_option = None
+            else:
+                args.append(part)
+
+    return {
+        'command': command,
+        'args': args,
+        'options': options,
+        'options_order': options_order
+    }
