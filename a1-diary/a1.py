@@ -37,6 +37,10 @@ def main():
             current_notebook = new_nb
             current_path = new_path
 
+        elif command == 'D':
+            output = command_d(parsed)
+            print(output)
+        
         else:
             print("COMMAND ERROR")
 
@@ -70,8 +74,27 @@ def command_c(parsed, current_notebook, current_path):
     except:
         return current_notebook, current_path, "PATH ERROR"
 
-def command_d():
-    pass
+def command_d(parsed):
+    args = parsed.get('args', [])
+    
+    if len(args) != 1:
+        return "ERROR"
+    
+    target_path = Path(args[0])
+    
+    if (
+        not target_path.exists() or
+        not target_path.is_file() or
+        target_path.suffix != '.json'
+    ):
+        return "ERROR"
+    
+    try:
+        absolute_path = target_path.absolute()
+        target_path.unlink()
+        return f"{absolute_path} DELETED"
+    except:
+        return "ERROR"
 
 def command_o():
     pass
