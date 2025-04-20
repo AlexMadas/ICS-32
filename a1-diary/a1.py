@@ -41,6 +41,13 @@ def main():
             output = command_d(parsed)
             print(output)
         
+        elif command == 'O':
+            new_nb, new_path, output = command_o(parsed)
+            print(output)
+            if "Notebook loaded." in output:
+                current_notebook = new_nb
+                current_path = new_path
+
         else:
             print("COMMAND ERROR")
 
@@ -96,8 +103,33 @@ def command_d(parsed):
     except:
         return "ERROR"
 
-def command_o():
-    pass
+def command_o(parsed):
+    args = parsed.get('args', [])
+    
+    if len(args) != 1:
+        return None, None, "ERROR"
+    
+    path = Path(args[0])
+    
+    if not path.exists() or not path.is_file() or path.suffix != '.json':
+        return None, None, "ERROR"
+    
+    try:
+        username = input().strip()
+        password = input().strip()
+    except:
+        return None, None, "ERROR"
+    
+    try:
+        notebook = Notebook("", "", "")
+        notebook.load(path)
+        
+        if notebook.username == username and notebook.password == password:
+            return notebook, path, f"Notebook loaded.\n{username}\n{notebook.bio}"
+        else:
+            return None, None, "ERROR"
+    except (NotebookFileError, IncorrectNotebookError):
+        return None, None, "ERROR"
 
 def command_e():
     pass
