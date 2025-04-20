@@ -11,6 +11,11 @@ from command_parser import parse_command
 from notebook import Notebook, Diary, NotebookFileError, IncorrectNotebookError
 
 def main():
+    """  
+    Main entry point of the diary program.  
+    Handles user input, command parsing, and execution until the user quits.  
+    Manages the currently loaded notebook and its file path.  
+    """  
     current_notebook = None
     current_path = None
 
@@ -29,9 +34,7 @@ def main():
         command = parsed['command']
 
         if command == 'C':
-            new_nb, new_path, output = command_c(
-                parsed, current_notebook, current_path
-            )
+            new_nb, new_path, output = command_c(parsed)
             print(output)
             current_notebook = new_nb
             current_path = new_path
@@ -66,37 +69,59 @@ def main():
         else:
             print("ERROR")
 
-def command_c(parsed, current_notebook, current_path):
+def command_c(parsed):
+    """  
+    Handles the 'C' command to create a new notebook.  
+
+    Args:  
+        parsed: Parsed command components (dict with 'args', 'options', etc.).  
+
+    Returns:  
+        Tuple containing:  
+        - New Notebook object (or None on error),  
+        - Path to the new notebook (or None on error),  
+        - Output message ("CREATED" or "ERROR").  
+
+    Raises:  
+        NotebookFileError: If the notebook file cannot be created.  
+    """  
     args = parsed['args']
     options = parsed['options']
     
     if len(args) != 1 or '-n' not in options or not options['-n']:
-        return current_notebook, current_path, "ERROR"
+        return None, None, "ERROR"
     
     dir_path = Path(args[0])
     diary_name = options['-n']
     full_path = dir_path / f"{diary_name}.json"
 
-    if not dir_path.exists() or not dir_path.is_dir():
-        print("ERROR")
-    if full_path.exists():
-        print("ERROR")
+    if not dir_path.exists() or not dir_path.is_dir() or full_path.exists():
+        return None, None, "ERROR"
 
     try:
         username = input("").strip()
         password = input("").strip()
         bio = input("").strip()
     except:
-        return current_notebook, current_path, "ERROR"
+        return None, None, "ERROR"
 
     try:
         new_notebook = Notebook(username, password, bio)
         new_notebook.save(full_path)
         return new_notebook, full_path, f"{full_path.absolute()} CREATED"
     except:
-        return current_notebook, current_path, "ERROR"
+        return None, None, "ERROR"
 
 def command_d(parsed):
+    """  
+    Handles the 'D' command to delete a notebook file.  
+
+    Args:  
+        parsed: Parsed command components.  
+
+    Returns:  
+        Output message ("DELETED" or "ERROR").  
+    """  
     args = parsed.get('args', [])
     
     if len(args) != 1:
@@ -119,6 +144,21 @@ def command_d(parsed):
         return "ERROR"
 
 def command_o(parsed):
+    """  
+    Handles the 'O' command to load an existing notebook.  
+
+    Args:  
+        parsed: Parsed command components.  
+
+    Returns:  
+        Tuple containing:  
+        - Loaded Notebook object (or None on error),  
+        - Path to the loaded notebook (or None on error),  
+        - Output message ("Notebook loaded." or "ERROR").  
+
+    Raises:  
+        IncorrectNotebookError: If the notebook file is invalid.  
+    """  
     args = parsed.get('args', [])
     
     if len(args) != 1:
@@ -147,6 +187,17 @@ def command_o(parsed):
         return None, None, "ERROR"
 
 def command_e(parsed, notebook, path):
+    """  
+    Handles the 'E' command to edit the loaded notebook.  
+
+    Args:  
+        parsed: Parsed command components.  
+        notebook: Currently loaded Notebook object.  
+        path: Path to the notebook file.  
+
+    Returns:  
+        "ERROR" if any operation fails; otherwise, an empty string.  
+    """  
     if not notebook or not path:
         return "ERROR"
 
@@ -183,6 +234,17 @@ def command_e(parsed, notebook, path):
     return "ERROR" if error_flag else ""
 
 def command_p(parsed, notebook, path):
+    """  
+    Handles the 'P' command to print notebook information.  
+
+    Args:  
+        parsed: Parsed command components.  
+        notebook: Currently loaded Notebook object.  
+        path: Path to the notebook file (unused but included for consistency).  
+
+    Returns:  
+        Formatted output string or "ERROR".  
+    """
     if not notebook or not path:
         return "ERROR"
 
@@ -192,7 +254,11 @@ def command_p(parsed, notebook, path):
     for opt in parsed.get('options_order', []):
         value = parsed['options'].get(opt)
 
-        # Handle each option
+        valid_options = ['-usr', '-pwd', '-bio', '-diaries', '-diary', '-all']
+        if opt not in valid_options:
+            error_flag = True
+            break
+
         if opt == '-usr':
             output_lines.append(notebook.username)
         elif opt == '-pwd':
