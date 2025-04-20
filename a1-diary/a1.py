@@ -10,7 +10,7 @@ from pathlib import Path
 from command_parser import parse_command
 from notebook import Notebook, Diary, NotebookFileError, IncorrectNotebookError
 
-def main():
+def main() -> None:
     """  
     Main entry point of the diary program.  
     Handles user input, command parsing, and execution until the user quits.  
@@ -69,7 +69,7 @@ def main():
         else:
             print("ERROR")
 
-def command_c(parsed):
+def command_c(parsed) -> tuple:
     """  
     Handles the 'C' command to create a new notebook.  
 
@@ -91,7 +91,7 @@ def command_c(parsed):
     if len(args) != 1 or '-n' not in options or not options['-n']:
         return None, None, "ERROR"
     
-    dir_path = Path(args[0])
+    dir_path = Path(args[0]).resolve()
     diary_name = options['-n']
     full_path = dir_path / f"{diary_name}.json"
 
@@ -112,7 +112,7 @@ def command_c(parsed):
     except:
         return None, None, "ERROR"
 
-def command_d(parsed):
+def command_d(parsed) -> str:
     """  
     Handles the 'D' command to delete a notebook file.  
 
@@ -127,7 +127,7 @@ def command_d(parsed):
     if len(args) != 1:
         return "ERROR"
     
-    target_path = Path(args[0])
+    target_path = Path(args[0]).resolve()
     
     if (
         not target_path.exists() or
@@ -143,7 +143,7 @@ def command_d(parsed):
     except:
         return "ERROR"
 
-def command_o(parsed):
+def command_o(parsed) -> tuple:
     """  
     Handles the 'O' command to load an existing notebook.  
 
@@ -164,7 +164,7 @@ def command_o(parsed):
     if len(args) != 1:
         return None, None, "ERROR"
     
-    path = Path(args[0])
+    path = Path(args[0]).resolve()
     
     if not path.exists() or not path.is_file() or path.suffix != '.json':
         return None, None, "ERROR"
@@ -186,7 +186,7 @@ def command_o(parsed):
     except (NotebookFileError, IncorrectNotebookError):
         return None, None, "ERROR"
 
-def command_e(parsed, notebook, path):
+def command_e(parsed, notebook, path) -> str:
     """  
     Handles the 'E' command to edit the loaded notebook.  
 
@@ -233,7 +233,7 @@ def command_e(parsed, notebook, path):
 
     return "ERROR" if error_flag else ""
 
-def command_p(parsed, notebook, path):
+def command_p(parsed, notebook, path) -> str:
     """  
     Handles the 'P' command to print notebook information.  
 
