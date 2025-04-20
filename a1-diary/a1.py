@@ -6,7 +6,6 @@
 # Madasa@uci.edu
 # 39847840
 
-import sys
 from pathlib import Path
 from command_parser import parse_command
 from notebook import Notebook, Diary, NotebookFileError, IncorrectNotebookError
@@ -24,7 +23,7 @@ def main():
 
         parsed = parse_command(input_str)
         if not parsed:
-            print("INPUT ERROR")
+            print("ERROR")
             continue
 
         command = parsed['command']
@@ -48,38 +47,54 @@ def main():
                 current_notebook = new_nb
                 current_path = new_path
 
+        elif command == 'E':
+            if not current_notebook or not current_path:
+                print("ERROR")
+                continue
+            output = command_e(parsed, current_notebook, current_path)
+            if output:
+                print(output)
+
+        elif command == 'P':
+            if not current_notebook or not current_path:
+                print("ERROR")
+                continue
+            output = command_p(parsed, current_notebook, current_path)
+            if output:
+                print(output)
+
         else:
-            print("COMMAND ERROR")
+            print("ERROR")
 
 def command_c(parsed, current_notebook, current_path):
     args = parsed['args']
     options = parsed['options']
     
     if len(args) != 1 or '-n' not in options or not options['-n']:
-        return current_notebook, current_path, "CREATION ERROR"
+        return current_notebook, current_path, "ERROR"
     
     dir_path = Path(args[0])
     diary_name = options['-n']
     full_path = dir_path / f"{diary_name}.json"
 
     if not dir_path.exists() or not dir_path.is_dir():
-        print("DIRECTORY ERROR")
+        print("ERROR")
     if full_path.exists():
-        print("FILE ALREADY EXISTS")
+        print("ERROR")
 
     try:
         username = input("").strip()
         password = input("").strip()
         bio = input("").strip()
     except:
-        return current_notebook, current_path, "CREDENTIAL ERROR"
+        return current_notebook, current_path, "ERROR"
 
     try:
         new_notebook = Notebook(username, password, bio)
         new_notebook.save(full_path)
         return new_notebook, full_path, f"{full_path.absolute()} CREATED"
     except:
-        return current_notebook, current_path, "PATH ERROR"
+        return current_notebook, current_path, "ERROR"
 
 def command_d(parsed):
     args = parsed.get('args', [])
@@ -131,11 +146,90 @@ def command_o(parsed):
     except (NotebookFileError, IncorrectNotebookError):
         return None, None, "ERROR"
 
-def command_e():
-    pass
+def command_e(parsed, notebook, path):
+    if not notebook or not path:
+        return "ERROR"
 
-def command_p():
-    pass
+    error_flag = False
+
+    for opt in parsed.get('options_order', []):
+        value = parsed['options'].get(opt)
+
+        if value is None or opt not in ['-usr', '-pwd', '-bio', '-add', '-del']:
+            error_flag = True
+            break
+
+        try:
+            if opt == '-usr':
+                notebook.username = value
+            elif opt == '-pwd':
+                notebook.password = value
+            elif opt == '-bio':
+                notebook.bio = value
+            elif opt == '-add':
+                diary = Diary(entry=value)
+                notebook.add_diary(diary)
+            elif opt == '-del':
+                idx = int(value)
+                if not notebook.del_diary(idx):
+                    error_flag = True
+                    break
+
+            notebook.save(path)
+        except:
+            error_flag = True
+            break
+
+    return "ERROR" if error_flag else ""
+
+def command_p(parsed, notebook, path):
+    if not notebook or not path:
+        return "ERROR"
+
+    output_lines = []
+    error_flag = False
+
+    for opt in parsed.get('options_order', []):
+        value = parsed['options'].get(opt)
+
+        # Handle each option
+        if opt == '-usr':
+            output_lines.append(notebook.username)
+        elif opt == '-pwd':
+            output_lines.append(notebook.password)
+        elif opt == '-bio':
+            output_lines.append(notebook.bio)
+        elif opt == '-diaries':
+            for idx, diary in enumerate(notebook.get_diaries()):
+                output_lines.append(f"{idx}: {diary.entry}")
+        elif opt == '-diary':
+            if value is None:
+                error_flag = True
+                break
+            try:
+                idx = int(value)
+                diary = notebook.get_diaries()[idx]
+                output_lines.append(diary.entry)
+            except (ValueError, IndexError):
+                error_flag = True
+                break
+        elif opt == '-all':
+            output_lines.append(notebook.username)
+            output_lines.append(notebook.password)
+            output_lines.append(notebook.bio)
+            for idx, diary in enumerate(notebook.get_diaries()):
+                output_lines.append(f"{idx}: {diary.entry}")
+        else:
+            error_flag = True
+            break
+
+        if error_flag:
+            break
+
+    if error_flag:
+        output_lines.append("ERROR")
+
+    return '\n'.join(output_lines) if output_lines else "ERROR"
 
 if __name__ == "__main__":
     main()
