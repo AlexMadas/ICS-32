@@ -6,7 +6,7 @@
 # Please see the README in this repository for the requirements of this lab exercise
 
 # Alex Madas
-# Madasa
+# Madasa@uci.edu
 # 39847840
 
 # ---------------------
