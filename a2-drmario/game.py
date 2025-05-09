@@ -19,12 +19,23 @@ class GameState:
         faller_cells = {}
         if self.faller:
             row, col = self.faller['row'], self.faller['col']
-            if self.faller['landed']:
-                faller_cells[(row, col)] = f"|{self.faller['left']}"
-                faller_cells[(row, col + 1)] = f"--{self.faller['right']}|"
+            if self.faller.get('vertical'):
+                top = self.faller.get('top')
+                bottom = self.faller.get('bottom')
+                if row - 1 >= 0:
+                    if self.faller['landed']:
+                        faller_cells[(row - 1, col)] = f"|{top}|"
+                        faller_cells[(row, col)] = f"|{bottom}|"
+                    else:
+                        faller_cells[(row - 1, col)] = f"[{top}]"
+                        faller_cells[(row, col)] = f"[{bottom}]"
             else:
-                faller_cells[(row, col)] = f"[{self.faller['left']}"
-                faller_cells[(row, col + 1)] = f"--{self.faller['right']}]"
+                if self.faller['landed']:
+                    faller_cells[(row, col)] = f"|{self.faller['left']}"
+                    faller_cells[(row, col + 1)] = f"--{self.faller['right']}|"
+                else:
+                    faller_cells[(row, col)] = f"[{self.faller['left']}"
+                    faller_cells[(row, col + 1)] = f"--{self.faller['right']}]"
 
         for r, row in enumerate(self.field):
             line = '|'
@@ -71,7 +82,8 @@ class GameState:
             'col': mid,         # left segment goes here
             'left': left,
             'right': right,
-            'landed': False
+            'landed': False,
+            'vertical': False   # Default: horizontal
         }
 
     def step(self):
@@ -97,3 +109,52 @@ class GameState:
         else:
             # Move faller down
             self.faller['row'] += 1
+
+    def rotate_faller(self, clockwise: bool) -> None:
+        """
+        Rotate the faller 90 degrees.
+        A = clockwise, B = counterclockwise
+        """
+        if not self.faller:
+            return
+
+        row = self.faller['row']
+        col = self.faller['col']
+        left = self.faller['left']
+        right = self.faller['right']
+
+        if self.faller.get('vertical'):
+            # Vertical → rotate to horizontal
+            new_col = col
+            if col + 1 >= self.cols or self.field[row][col + 1] != ' ':
+                # Wall kick to left if possible
+                if col - 1 >= 0 and self.field[row][col - 1] == ' ':
+                    new_col = col - 1
+                else:
+                    return  # Cannot rotate
+            self.faller['col'] = new_col
+            if clockwise:
+                self.faller['left'], self.faller['right'] = self.faller['right'], self.faller['left']
+            self.faller['vertical'] = False
+
+        else:
+            # Horizontal → rotate to vertical
+            if row - 1 < 0 or self.field[row - 1][col] != ' ':
+                return  # No space above
+            self.faller['vertical'] = True
+            if clockwise:
+                self.faller['top'] = self.faller['right']
+                self.faller['bottom'] = self.faller['left']
+            else:
+                self.faller['top'] = self.faller['left']
+                self.faller['bottom'] = self.faller['right']
+
+    def insert_virus(self, row: int, col: int, color: str) -> None:
+        """
+        Insert a virus (r, b, y) at a specific cell, if empty.
+        """
+        color = color.lower()
+        if color not in ('r', 'b', 'y'):
+            return  # Invalid color input
+        if self.field[row][col] == ' ':
+            self.field[row][col] = color
