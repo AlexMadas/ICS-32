@@ -13,6 +13,7 @@ class GameState:
         self.field = contents if contents else [[' ' for _ in range(cols)] for _ in range(rows)]
         self.faller = None
         self.game_over = False
+        self.matched_cells = set()
 
     def render(self) -> List[str]:
         result = []
@@ -40,6 +41,9 @@ class GameState:
         for r, row in enumerate(self.field):
             line = '|'
             for c, cell in enumerate(row):
+                if (r, c) in self.matched_cells:
+                    line += f"*{self.field[r][c]}*"
+                    continue
                 if (r, c) in faller_cells:
                     line += faller_cells[(r, c)]
                 elif cell == ' ':
@@ -86,29 +90,50 @@ class GameState:
             'vertical': False   # Default: horizontal
         }
 
-    def step(self):
+    def step(self) -> None:
         """
-        Handle time passing: move faller down, land it, or freeze it.
+        Progress one frame of game logic:
+        - Move faller (if any)
+        - Freeze faller (if landed)
+        - Detect and show matches
+        - Clear matched cells on next step
         """
-        if not self.faller:
-            return  # Nothing to update
+        if self.faller:
+            row = self.faller['row']
+            col = self.faller['col']
 
-        row = self.faller['row']
-        col = self.faller['col']
+            # Check if the faller can move down
+            blocked = (
+                row + 1 >= self.rows or
+                self.field[row + 1][col] != ' ' or
+                (not self.faller.get('vertical') and self.field[row + 1][col + 1] != ' ')
+            )
 
-        # Check if next row is available and empty
-        if row + 1 >= self.rows or self.field[row + 1][col] != ' ' or self.field[row + 1][col + 1] != ' ':
-            if self.faller['landed']:
-                # Freeze faller into the grid
-                self.field[row][col] = self.faller['left']
-                self.field[row][col + 1] = self.faller['right']
-                self.faller = None
+            if blocked:
+                if self.faller['landed']:
+                    # Freeze into the field
+                    if self.faller.get('vertical'):
+                        self.field[row - 1][col] = self.faller['top']
+                        self.field[row][col] = self.faller['bottom']
+                    else:
+                        self.field[row][col] = self.faller['left']
+                        self.field[row][col + 1] = self.faller['right']
+                    self.faller = None
+                else:
+                    self.faller['landed'] = True
             else:
-                # Mark as landed
-                self.faller['landed'] = True
-        else:
-            # Move faller down
-            self.faller['row'] += 1
+                self.faller['row'] += 1
+
+            return  # Exit now, no matching yet
+
+
+        # Handle match-clearing cycle
+        if self.matched_cells:
+            self.clear_matches()
+            return  # allow field to show cleared state before rechecking
+
+        self.check_matches()
+
 
     def rotate_faller(self, clockwise: bool) -> None:
         """
@@ -158,3 +183,53 @@ class GameState:
             return  # Invalid color input
         if self.field[row][col] == ' ':
             self.field[row][col] = color
+
+    def check_matches(self) -> None:
+        """
+        Identify and mark matches of 4+ same-color cells.
+        """
+        marked = set()
+
+        # Horizontal
+        for r in range(self.rows):
+            c = 0
+            while c <= self.cols - 4:
+                current = self.field[r][c]
+                if current != ' ':
+                    same = 1
+                    while c + same < self.cols and self.field[r][c + same] == current:
+                        same += 1
+                    if same >= 4:
+                        for i in range(same):
+                            marked.add((r, c + i))
+                    c += same
+                else:
+                    c += 1
+
+        # Vertical
+        for c in range(self.cols):
+            r = 0
+            while r <= self.rows - 4:
+                current = self.field[r][c]
+                if current != ' ':
+                    same = 1
+                    while r + same < self.rows and self.field[r + same][c] == current:
+                        same += 1
+                    if same >= 4:
+                        for i in range(same):
+                            marked.add((r + i, c))
+                    r += same
+                else:
+                    r += 1
+
+        self.matched_cells = marked
+
+    def clear_matches(self) -> None:
+        """
+        Clear all matched cells from the field.
+        """
+        for r, c in self.matched_cells:
+            self.field[r][c] = ' '
+        self.matched_cells.clear()
+
+    
