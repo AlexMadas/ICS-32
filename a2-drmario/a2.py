@@ -41,7 +41,10 @@ def main():
                     col = int(c_str)
                     game.insert_virus(row, col, color)
                 except ValueError:
-                    pass  # Ignore invalid numbers
+                    pass  # Ignore invalid numbers       
+        if game.game_over:
+            print('GAME OVER')
+            return
 
 
 if __name__ == '__main__':

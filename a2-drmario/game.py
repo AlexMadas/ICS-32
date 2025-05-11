@@ -130,6 +130,7 @@ class GameState:
         # Handle match-clearing cycle
         if self.matched_cells:
             self.clear_matches()
+            self.apply_gravity()
             return  # allow field to show cleared state before rechecking
 
         self.check_matches()
@@ -232,4 +233,18 @@ class GameState:
             self.field[r][c] = ' '
         self.matched_cells.clear()
 
-    
+    def apply_gravity(self) -> None:
+        """
+        Apply gravity to vitamin capsule segments after clearing.
+        Only R, Y, B fall — viruses stay in place.
+        """
+        for c in range(self.cols):
+            for r in range(self.rows - 2, -1, -1):  # Bottom-up
+                current = self.field[r][c]
+                if current in 'RBY':
+                    row_below = r
+                    while (row_below + 1 < self.rows) and self.field[row_below + 1][c] == ' ':
+                        row_below += 1
+                    if row_below != r:
+                        self.field[row_below][c] = current
+                        self.field[r][c] = ' '

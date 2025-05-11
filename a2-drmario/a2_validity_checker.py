@@ -341,7 +341,7 @@ def make_test_lines() -> List['TestLine']:
     test_lines.append(TestOutputLine('|    R--Y    |', 10.0))
     test_lines.append(TestOutputLine(' ------------ ', 10.0))
     test_lines.append(TestOutputLine('LEVEL CLEARED', 10.0))
-    test_lines.append(TestInputLine('V 2 1 R'))
+    test_lines.append(TestInputLine('V 2 1 r'))
     test_lines.append(TestOutputLine('|            |', 10.0))
     test_lines.append(TestOutputLine('|            |', 10.0))
     test_lines.append(TestOutputLine('|    r       |', 10.0))
