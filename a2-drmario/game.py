@@ -18,6 +18,7 @@ class GameState:
     def render(self) -> List[str]:
         result = []
         faller_cells = {}
+        self.check_matches()
         if self.faller:
             row, col = self.faller['row'], self.faller['col']
             if self.faller.get('vertical'):
@@ -98,42 +99,43 @@ class GameState:
         - Detect and show matches
         - Clear matched cells on next step
         """
-        if self.faller:
+        # If a faller exists, handle its movement/landing
+        if self.faller is not None:
+            if not self.faller['landed']:
+                self.faller['row'] += 1
             row = self.faller['row']
             col = self.faller['col']
+            vertical = self.faller.get('vertical', False)
 
-            # Check if the faller can move down
+            # Check if the faller is blocked (at bottom or cell below is filled)
             blocked = (
                 row + 1 >= self.rows or
                 self.field[row + 1][col] != ' ' or
-                (not self.faller.get('vertical') and self.field[row + 1][col + 1] != ' ')
+                (not vertical and self.field[row + 1][col + 1] != ' ')
             )
 
             if blocked:
-                if self.faller['landed']:
-                    # Freeze into the field
-                    if self.faller.get('vertical'):
+                if not self.faller['landed']:
+                    # Set to landed immediately (to change brackets in render)
+                    self.faller['landed'] = True
+                else:
+                    # Already landed -> freeze into field
+                    if vertical:
                         self.field[row - 1][col] = self.faller['top']
                         self.field[row][col] = self.faller['bottom']
                     else:
                         self.field[row][col] = self.faller['left']
                         self.field[row][col + 1] = self.faller['right']
                     self.faller = None
-                else:
-                    self.faller['landed'] = True
-            else:
-                self.faller['row'] += 1
 
-            return  # Exit now, no matching yet
-
-
-        # Handle match-clearing cycle
+        # No faller — resolve matches/gravity
         if self.matched_cells:
             self.clear_matches()
-            self.apply_gravity()
-            return  # allow field to show cleared state before rechecking
-
-        self.check_matches()
+        else:
+            self.check_matches()
+            
+        self.apply_gravity()
+        return
 
 
     def rotate_faller(self, clockwise: bool) -> None:
@@ -150,7 +152,7 @@ class GameState:
         right = self.faller['right']
 
         if self.faller.get('vertical'):
-            # Vertical → rotate to horizontal
+            # Vertical -> rotate to horizontal
             new_col = col
             if col + 1 >= self.cols or self.field[row][col + 1] != ' ':
                 # Wall kick to left if possible
@@ -164,7 +166,7 @@ class GameState:
             self.faller['vertical'] = False
 
         else:
-            # Horizontal → rotate to vertical
+            # Horizontal -> rotate to vertical
             if row - 1 < 0 or self.field[row - 1][col] != ' ':
                 return  # No space above
             self.faller['vertical'] = True
@@ -198,7 +200,7 @@ class GameState:
                 current = self.field[r][c]
                 if current != ' ':
                     same = 1
-                    while c + same < self.cols and self.field[r][c + same] == current:
+                    while c + same < self.cols and self.field[r][c + same].upper() == current.upper():
                         same += 1
                     if same >= 4:
                         for i in range(same):
@@ -237,14 +239,13 @@ class GameState:
         """
         Apply gravity to vitamin capsule segments after clearing.
         Only R, Y, B fall — viruses stay in place.
+        Segments fall only one cell per step.
         """
         for c in range(self.cols):
-            for r in range(self.rows - 2, -1, -1):  # Bottom-up
+            # Bottom-up pass, starting from second-to-last row
+            for r in range(self.rows - 2, -1, -1):
                 current = self.field[r][c]
-                if current in 'RBY':
-                    row_below = r
-                    while (row_below + 1 < self.rows) and self.field[row_below + 1][c] == ' ':
-                        row_below += 1
-                    if row_below != r:
-                        self.field[row_below][c] = current
-                        self.field[r][c] = ' '
+                below = self.field[r + 1][c]
+                if current in 'RBY' and below == ' ':
+                    self.field[r + 1][c] = current
+                    self.field[r][c] = ' '
