@@ -207,7 +207,7 @@ class GameState:
             self.game_over = True
             return
 
-        # All clear → create your new faller
+        # Once all conditions are met, create a new faller
         self.faller = Faller(row=1, col=mid, left=left, right=right)
 
     def move_faller_left(self) -> None:
@@ -256,8 +256,8 @@ class GameState:
             self.check_matches()
 
         # C) Gravity
-        if self.faller != None and not self.faller.landed:
-            self.apply_gravity()
+        #if self.faller != None and not self.faller.landed:
+        self.apply_gravity()
 
     def rotate_faller(self, clockwise: bool) -> None:
         """
@@ -355,9 +355,33 @@ class GameState:
         Remove all matched cells (set them to empty) and clear the matched list.
         """
         for r, c in self.matched_cells:
-            self.field[r][c] = ' '
-        self.matched_cells.clear()
+            cell = self.field[r][c]
 
+            # If we're deleting a capsule half, orphan its mate.
+            if isinstance(cell, tuple):
+                color, tag = cell
+
+                # Determine partner's coordinates
+                if tag in ('left', 'right'):
+                    dc =  1 if tag == 'left' else -1
+                    pr, pc = r, c + dc
+                elif tag in ('top', 'bottom'):
+                    dr =  1 if tag == 'top'  else -1
+                    pr, pc = r + dr, c
+                else:
+                    pr = pc = None
+
+                # If the partner is still a tuple, demote it to a single segment
+                if pr is not None and 0 <= pr < self.rows and 0 <= pc < self.cols:
+                    partner = self.field[pr][pc]
+                    if isinstance(partner, tuple):
+                        # Strip off its tag so gravity treats it as a lone segment
+                        self.field[pr][pc] = partner[0]
+
+            # Finally clear this matched cell
+            self.field[r][c] = ' '
+
+        self.matched_cells.clear()
     def apply_gravity(self) -> None:
         """
         Apply exactly one step of gravity:
@@ -384,10 +408,18 @@ class GameState:
                                 self.field[r][c + 1]     = ' '
                                 moved |= {(r + 1, c), (r + 1, c + 1)}
                                 continue
-
+                """
                 # Otherwise, single‐segment gravity
                 color = curr[0] if isinstance(curr, tuple) else curr
                 if color in 'RBY' and self.field[r + 1][c] == ' ':
                     self.field[r + 1][c] = curr
                     self.field[r][c]     = ' '
                     moved.add((r + 1, c))
+                """
+                # Single‐segment gravity: only for things that aren't still in a horizontal capsule
+                if not (isinstance(curr, tuple) and curr[1] in ('left', 'right')):
+                    color = curr[0] if isinstance(curr, tuple) else curr
+                    if color in 'RBY' and self.field[r + 1][c] == ' ':
+                        self.field[r + 1][c] = curr
+                        self.field[r][c]     = ' '
+                        moved.add((r + 1, c))
