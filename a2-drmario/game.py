@@ -38,17 +38,18 @@ class Faller:
           - Clockwise (A): top = right, bottom = left.
           - Counterclockwise (B): top = left, bottom = right.
         """
-        if self.vertical:
-            # Vertical -> horizontal (bottom becomes left, top becomes right)
-            self.left, self.right = self.bottom, self.top
-            self.vertical = False
-        else:
-            # Horizontal -> vertical (orientation depends on clockwise flag)
-            self.vertical = True
-            if clockwise:
-                self.top, self.bottom = self.right, self.left
+        if clockwise:
+            if self.vertical:
+                self.left, self.right = self.bottom, self.top
             else:
                 self.top, self.bottom = self.left, self.right
+        else:
+            if self.vertical:
+                self.left, self.right = self.top, self.bottom
+            else:
+                self.top, self.bottom = self.right, self.left
+        
+        self.vertical = not self.vertical
 
     def get_positions(self) -> List[Tuple[int,int,str]]:
         """
@@ -255,7 +256,8 @@ class GameState:
             self.check_matches()
 
         # C) Gravity
-        self.apply_gravity()
+        if self.faller != None and not self.faller.landed:
+            self.apply_gravity()
 
     def rotate_faller(self, clockwise: bool) -> None:
         """

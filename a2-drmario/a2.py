@@ -53,7 +53,8 @@ def main():
                 except ValueError:
                     pass  # Ignore invalid numbers       
         if game.game_over:
-            print('GAME OVER')
+            for line in game.render():
+                print(line)
             return
 
 
