@@ -11,7 +11,13 @@ def main():
     elif init_mode == 'CONTENTS':
         for _ in range(rows):
             line = input()
-            contents.append(list(line))
+            row = []
+            for char in line:
+                if char in 'RBY':
+                    row.append((char, 'single'))  # Tag capsules
+                else:
+                    row.append(char)  # Keep viruses and spaces as-is
+            contents.append(row)
 
     game = GameState(rows, cols, contents)
 

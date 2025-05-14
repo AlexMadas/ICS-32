@@ -43,14 +43,25 @@ class GameState:
             line = '|'
             for c, cell in enumerate(row):
                 if (r, c) in self.matched_cells:
-                    line += f"*{self.field[r][c]}*"
+                    val = self.field[r][c]
+                    if isinstance(val, tuple):
+                        val = val[0]
+                    line += f"*{val}*"
                     continue
                 if (r, c) in faller_cells:
                     line += faller_cells[(r, c)]
                 elif cell == ' ':
                     line += '   '
-                elif cell in 'RBY':
-                    line += f' {cell} '
+                elif isinstance(cell, tuple):
+                    color, part = cell
+                    if part == 'left':
+                        line += f' {color}-'
+                    elif part == 'right':
+                        line += f'-{color} '
+                    elif part == 'top' or part == 'bottom':
+                        line += f' {color} '
+                    else:
+                        line += f' {color} '
                 elif cell in 'rby':
                     line += f' {cell} '
                 else:
@@ -59,7 +70,7 @@ class GameState:
             result.append(line)
 
         result.append(' ' + '-' * (3 * self.cols) + ' ')
-        if not any(cell in 'rby' for row in self.field for cell in row):
+        if not any((cell if isinstance(cell, str) else cell[0]) in 'rby' for row in self.field for cell in row):
             result.append('LEVEL CLEARED')
         if self.game_over:
             result.append('GAME OVER')
@@ -121,11 +132,11 @@ class GameState:
                 else:
                     # Already landed -> freeze into field
                     if vertical:
-                        self.field[row - 1][col] = self.faller['top']
-                        self.field[row][col] = self.faller['bottom']
+                        self.field[row - 1][col] = (self.faller['top'], 'top')
+                        self.field[row][col] = (self.faller['bottom'], 'bottom')
                     else:
-                        self.field[row][col] = self.faller['left']
-                        self.field[row][col + 1] = self.faller['right']
+                        self.field[row][col] = (self.faller['left'], 'left')
+                        self.field[row][col + 1] = (self.faller['right'], 'right')
                     self.faller = None
 
         # No faller — resolve matches/gravity
@@ -187,6 +198,12 @@ class GameState:
         if self.field[row][col] == ' ':
             self.field[row][col] = color
 
+    def get_color(self, cell: object) -> str:
+        """Extract color from a grid cell (string or tuple)."""
+        if isinstance(cell, tuple):
+            return cell[0]
+        return cell
+
     def check_matches(self) -> None:
         """
         Identify and mark matches of 4+ same-color cells.
@@ -197,10 +214,11 @@ class GameState:
         for r in range(self.rows):
             c = 0
             while c <= self.cols - 4:
-                current = self.field[r][c]
+                cell = self.field[r][c]
+                current = self.get_color(cell).upper()
                 if current != ' ':
                     same = 1
-                    while c + same < self.cols and self.field[r][c + same].upper() == current.upper():
+                    while c + same < self.cols and self.get_color(self.field[r][c + same]).upper() == current:
                         same += 1
                     if same >= 4:
                         for i in range(same):
@@ -213,10 +231,11 @@ class GameState:
         for c in range(self.cols):
             r = 0
             while r <= self.rows - 4:
-                current = self.field[r][c]
+                cell = self.field[r][c]
+                current = self.get_color(cell).upper()
                 if current != ' ':
                     same = 1
-                    while r + same < self.rows and self.field[r + same][c] == current:
+                    while r + same < self.rows and self.get_color(self.field[r + same][c]).upper() == current:
                         same += 1
                     if same >= 4:
                         for i in range(same):
@@ -246,6 +265,9 @@ class GameState:
             for r in range(self.rows - 2, -1, -1):
                 current = self.field[r][c]
                 below = self.field[r + 1][c]
-                if current in 'RBY' and below == ' ':
+                if isinstance(current, tuple) and current[0] in 'RBY' and below == ' ':
+                    self.field[r + 1][c] = current
+                    self.field[r][c] = ' '
+                elif current in 'RBY' and below == ' ':
                     self.field[r + 1][c] = current
                     self.field[r][c] = ' '
