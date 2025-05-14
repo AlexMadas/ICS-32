@@ -11,3 +11,61 @@ F R Y
 
 
 F R Y
+
+
+TEST 1
+4
+4
+EMPTY
+F R Y
+
+
+
+F Y B
+
+A
+>
+
+V 2 1 r
+V 1 1 r
+V 0 1 r
+
+F Y Y
+
+
+
+
+TEST 2
+4
+4
+CONTENTS
+    
+R  r
+    
+YyYy
+
+
+F R Y
+<
+<
+
+
+
+F R R
+A
+<
+
+
+
+F B Y
+B
+Q
+
+
+4
+4
+CONTENTS
+
+R  r
+
+YyYy
