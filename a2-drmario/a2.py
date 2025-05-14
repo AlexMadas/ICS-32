@@ -38,6 +38,10 @@ def main():
             game.rotate_faller(clockwise=True)
         elif cmd == 'B':
             game.rotate_faller(clockwise=False)
+        elif cmd == '<':
+            game.move_faller_left()
+        elif cmd == '>':
+            game.move_faller_right()
         elif cmd.startswith('V '):
             parts = cmd.split()
             if len(parts) == 4:

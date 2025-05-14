@@ -1,246 +1,348 @@
-from typing import List, Optional
+from typing import List, Optional, Tuple
+
+class Faller:
+    def __init__(self, row: int, col: int, left: str, right: str):
+        """
+        Initialize a new Faller.
+        :param row: row index of the bottom segment
+        :param col: column index of the left segment
+        :param left: color of the left (or top) segment
+        :param right: color of the right (or bottom) segment
+        """
+        self.row = row
+        self.col = col
+        self.left = left
+        self.right = right
+        self.vertical = False
+        self.landed = False
+        self.top:    Optional[str] = None
+        self.bottom: Optional[str] = None
+
+    def move_down(self):
+        """
+        Drop the faller down by one row.
+        """
+        self.row += 1
+
+    def land(self):
+        """
+        Mark the faller as landed, so that on the next step it will freeze.
+        """
+        self.landed = True
+
+    def rotate(self, clockwise: bool):
+        """
+        Rotate the faller 90°.
+        Vertical -> horizontal: always map bottom->left and top->right.
+        Horizontal -> vertical:
+          - Clockwise (A): top = right, bottom = left.
+          - Counterclockwise (B): top = left, bottom = right.
+        """
+        if self.vertical:
+            # Vertical -> horizontal (bottom becomes left, top becomes right)
+            self.left, self.right = self.bottom, self.top
+            self.vertical = False
+        else:
+            # Horizontal -> vertical (orientation depends on clockwise flag)
+            self.vertical = True
+            if clockwise:
+                self.top, self.bottom = self.right, self.left
+            else:
+                self.top, self.bottom = self.left, self.right
+
+    def get_positions(self) -> List[Tuple[int,int,str]]:
+        """
+        Return a list of the two occupied cells as (row, col, color).
+        Vertical: [(row-1,col,top), (row,col,bottom)].
+        Horizontal: [(row,col,left), (row,col+1,right)].
+        """
+        if self.vertical:
+            return [(self.row - 1, self.col, self.top),
+                    (self.row,     self.col, self.bottom)]
+        else:
+            return [(self.row, self.col,     self.left),
+                    (self.row, self.col + 1, self.right)]
+
+    def can_move(self, dr: int, dc: int, field: List[List[object]]) -> bool:
+        """
+        True if shifting by (dr,dc) keeps both segments in bounds
+        and on empty cells.
+        """
+        rows, cols = len(field), len(field[0])
+        for r, c, _ in self.get_positions():
+            nr, nc = r + dr, c + dc
+            if not (0 <= nr < rows and 0 <= nc < cols): 
+                return False
+            if field[nr][nc] != ' ':
+                return False
+        return True
+
+    def move_left(self, field: List[List[object]]):
+        """
+        Move faller left if possible; reset landed status if moved.
+        """
+        if self.can_move(0, -1, field):
+            self.col -= 1
+            self.landed = False
+
+    def move_right(self, field: List[List[object]]):
+        """
+        Move faller right if possible; reset landed status if moved.
+        """
+        if self.can_move(0, +1, field):
+            self.col += 1
+            self.landed = False
+
+    def will_land(self, field: List[List[object]]) -> bool:
+        """
+        Return True if moving down one more row would collide
+        (i.e. it's blocked and therefore should land).
+        """
+        return not self.can_move(1, 0, field)
+
 
 class GameState:
-    def __init__(self, rows, cols, contents=None):
+    def __init__(self, rows: int, cols: int, contents: Optional[List[List[object]]] = None):
         """
-        Initialize the game field.
-        :param rows: Number of rows in the field.
-        :param cols: Number of columns in the field.
-        :param contents: Initial field contents, or None for empty.
+        Initialize the game field and state.
+        :param rows: number of rows
+        :param cols: number of columns
+        :param contents: prefilled grid (or None for empty)
         """
         self.rows = rows
         self.cols = cols
-        self.field = contents if contents else [[' ' for _ in range(cols)] for _ in range(rows)]
-        self.faller = None
+        self.field = contents if contents is not None else [[' ']*cols for _ in range(rows)]
+        self.faller: Optional[Faller] = None
         self.game_over = False
         self.matched_cells = set()
 
     def render(self) -> List[str]:
-        result = []
-        faller_cells = {}
-        self.check_matches()
-        if self.faller:
-            row, col = self.faller['row'], self.faller['col']
-            if self.faller.get('vertical'):
-                top = self.faller.get('top')
-                bottom = self.faller.get('bottom')
-                if row - 1 >= 0:
-                    if self.faller['landed']:
-                        faller_cells[(row - 1, col)] = f"|{top}|"
-                        faller_cells[(row, col)] = f"|{bottom}|"
-                    else:
-                        faller_cells[(row - 1, col)] = f"[{top}]"
-                        faller_cells[(row, col)] = f"[{bottom}]"
-            else:
-                if self.faller['landed']:
-                    faller_cells[(row, col)] = f"|{self.faller['left']}"
-                    faller_cells[(row, col + 1)] = f"--{self.faller['right']}|"
-                else:
-                    faller_cells[(row, col)] = f"[{self.faller['left']}"
-                    faller_cells[(row, col + 1)] = f"--{self.faller['right']}]"
+        """
+        Render the current field (with faller overlay and matches).
+        Returns a list of text lines to print.
+        """
+        self.check_matches()  # update matched_cells
 
-        for r, row in enumerate(self.field):
+        # build a map of faller cells -> their render strings
+        faller_cells = {}
+        if self.faller:
+            f = self.faller
+            r, c = f.row, f.col
+            if not f.vertical:
+                # horizontal
+                if f.landed:
+                    faller_cells[(r, c    )] = f"|{f.left}-"
+                    faller_cells[(r, c + 1)] = f"-{f.right}|"
+                else:
+                    faller_cells[(r, c    )] = f"[{f.left}-"
+                    faller_cells[(r, c + 1)] = f"-{f.right}]"
+            else:
+                # vertical
+                if f.landed:
+                    faller_cells[(r - 1, c)] = f"|{f.top}|"
+                    faller_cells[(r,     c)] = f"|{f.bottom}|"
+                else:
+                    faller_cells[(r - 1, c)] = f"[{f.top}]"
+                    faller_cells[(r,     c)] = f"[{f.bottom}]"
+
+        out: List[str] = []
+        for r in range(self.rows):
             line = '|'
-            for c, cell in enumerate(row):
-                if (r, c) in self.matched_cells:
+            for c in range(self.cols):
+                if (r, c) in faller_cells:
+                    line += faller_cells[(r, c)]
+                elif (r, c) in self.matched_cells:
+                    # highlight matched cells
                     val = self.field[r][c]
                     if isinstance(val, tuple):
                         val = val[0]
                     line += f"*{val}*"
-                    continue
-                if (r, c) in faller_cells:
-                    line += faller_cells[(r, c)]
-                elif cell == ' ':
-                    line += '   '
-                elif isinstance(cell, tuple):
-                    color, part = cell
-                    if part == 'left':
-                        line += f' {color}-'
-                    elif part == 'right':
-                        line += f'-{color} '
-                    elif part == 'top' or part == 'bottom':
-                        line += f' {color} '
-                    else:
-                        line += f' {color} '
-                elif cell in 'rby':
-                    line += f' {cell} '
                 else:
-                    line += ' ? '  # unexpected, for debugging
+                    cell = self.field[r][c]
+                    if cell == ' ':
+                        line += '   '
+                    elif isinstance(cell, tuple):
+                        color, part = cell
+                        if part == 'left':
+                            line += f' {color}-'
+                        elif part == 'right':
+                            line += f'-{color} '
+                        else:
+                            line += f' {color} '
+                    else:
+                        line += f' {cell} '
             line += '|'
-            result.append(line)
+            out.append(line)
 
-        result.append(' ' + '-' * (3 * self.cols) + ' ')
-        if not any((cell if isinstance(cell, str) else cell[0]) in 'rby' for row in self.field for cell in row):
-            result.append('LEVEL CLEARED')
+        # bottom border
+        out.append(' ' + '-'*(3*self.cols) + ' ')
+
+        # LEVEL CLEARED?
+        if not any((cell if isinstance(cell, str) else cell[0]) in 'rby'
+                   for row in self.field for cell in row):
+            out.append('LEVEL CLEARED')
+
+        # GAME OVER?
         if self.game_over:
-            result.append('GAME OVER')
-        return result
-    
+            out.append('GAME OVER')
+
+        return out
+
     def create_faller(self, left: str, right: str) -> None:
         """
-        Creates a new horizontal faller with given left and right colors.
-        Placed on the second row, centered in the field.
+        “F left right” — spawn a new faller horizontally at row=1, centered.
+        If **any** of the two spawn cells (row 0 or row 1 at mid/mid+1) is non-empty,
+        that's GAME OVER.
         """
-        if self.faller is not None:
-            return  # A faller already exists
+        if self.faller:
+            return
 
-        mid = self.cols // 2
-        if self.cols % 2 == 0:
-            mid -= 1  # Use the left-middle cell for even columns
-
-        # Check for GAME OVER condition
-        if self.field[0][mid] != ' ' or self.field[0][mid + 1] != ' ':
+        mid = (self.cols // 2) - (1 if self.cols % 2 == 0 else 0)
+        # Check both the invisible top barrier (row 0) AND the actual spawn row (row 1)
+        if (self.field[0][mid]   != ' '
+         or self.field[0][mid+1] != ' '
+         or self.field[1][mid]   != ' '
+         or self.field[1][mid+1] != ' '):
             self.game_over = True
             return
 
-        self.faller = {
-            'row': 1,           # second row (0-indexed)
-            'col': mid,         # left segment goes here
-            'left': left,
-            'right': right,
-            'landed': False,
-            'vertical': False   # Default: horizontal
-        }
+        # All clear → create your new faller
+        self.faller = Faller(row=1, col=mid, left=left, right=right)
+
+    def move_faller_left(self) -> None:
+        """
+        Handle the "<" command: move the faller left if possible.
+        """
+        if self.faller:
+            self.faller.move_left(self.field)
+
+    def move_faller_right(self) -> None:
+        """
+        Handle the ">" command: move the faller right if possible.
+        """
+        if self.faller:
+            self.faller.move_right(self.field)
 
     def step(self) -> None:
         """
-        Progress one frame of game logic:
-        - Move faller (if any)
-        - Freeze faller (if landed)
-        - Detect and show matches
-        - Clear matched cells on next step
+        Advance the game by one tick (blank input):
+        1) Move or freeze the faller
+        2) If no faller, run match/clear
+        3) Then apply one-step gravity
         """
-        # If a faller exists, handle its movement/landing
-        if self.faller is not None:
-            if not self.faller['landed']:
-                self.faller['row'] += 1
-            row = self.faller['row']
-            col = self.faller['col']
-            vertical = self.faller.get('vertical', False)
-
-            # Check if the faller is blocked (at bottom or cell below is filled)
-            blocked = (
-                row + 1 >= self.rows or
-                self.field[row + 1][col] != ' ' or
-                (not vertical and self.field[row + 1][col + 1] != ' ')
-            )
-
-            if blocked:
-                if not self.faller['landed']:
-                    # Set to landed immediately (to change brackets in render)
-                    self.faller['landed'] = True
+        # A) Faller logic
+        if self.faller:
+            if not self.faller.landed and not self.faller.will_land(self.field):
+                self.faller.move_down()
+            if self.faller.will_land(self.field):
+                if not self.faller.landed:
+                    self.faller.land()
                 else:
-                    # Already landed -> freeze into field
-                    if vertical:
-                        self.field[row - 1][col] = (self.faller['top'], 'top')
-                        self.field[row][col] = (self.faller['bottom'], 'bottom')
-                    else:
-                        self.field[row][col] = (self.faller['left'], 'left')
-                        self.field[row][col + 1] = (self.faller['right'], 'right')
+                    # freeze both segments into the field
+                    for r, c, color in self.faller.get_positions():
+                        if self.faller.vertical:
+                            tag = 'top' if r == self.faller.row-1 else 'bottom'
+                        else:
+                            tag = 'left' if c == self.faller.col else 'right'
+                        self.field[r][c] = (color, tag)
                     self.faller = None
+            return
 
-        # No faller — resolve matches/gravity
+        # B) Matching & clearing
         if self.matched_cells:
             self.clear_matches()
         else:
             self.check_matches()
-            
-        self.apply_gravity()
-        return
 
+        # C) Gravity
+        self.apply_gravity()
 
     def rotate_faller(self, clockwise: bool) -> None:
         """
-        Rotate the faller 90 degrees.
-        A = clockwise, B = counterclockwise
+        Handle "A" (clockwise) or "B" (counterclockwise) rotation,
+        including a simple wall‐kick to the left if needed.
         """
         if not self.faller:
             return
-
-        row = self.faller['row']
-        col = self.faller['col']
-        left = self.faller['left']
-        right = self.faller['right']
-
-        if self.faller.get('vertical'):
-            # Vertical -> rotate to horizontal
-            new_col = col
-            if col + 1 >= self.cols or self.field[row][col + 1] != ' ':
-                # Wall kick to left if possible
-                if col - 1 >= 0 and self.field[row][col - 1] == ' ':
-                    new_col = col - 1
-                else:
-                    return  # Cannot rotate
-            self.faller['col'] = new_col
-            if clockwise:
-                self.faller['left'], self.faller['right'] = self.faller['right'], self.faller['left']
-            self.faller['vertical'] = False
-
-        else:
-            # Horizontal -> rotate to vertical
-            if row - 1 < 0 or self.field[row - 1][col] != ' ':
-                return  # No space above
-            self.faller['vertical'] = True
-            if clockwise:
-                self.faller['top'] = self.faller['right']
-                self.faller['bottom'] = self.faller['left']
-            else:
-                self.faller['top'] = self.faller['left']
-                self.faller['bottom'] = self.faller['right']
+        before = self.faller.col
+        self.faller.rotate(clockwise)
+        pts = self.faller.get_positions()
+        bad = any(
+            r < 0 or r >= self.rows or c < 0 or c >= self.cols or self.field[r][c] != ' '
+            for r, c, _ in pts
+        )
+        if bad:
+            # try kicking left
+            self.faller.col = before - 1
+            pts = self.faller.get_positions()
+            if any(r < 0 or r >= self.rows or c < 0 or c >= self.cols or self.field[r][c] != ' '
+                   for r, c, _ in pts):
+                # rollback
+                self.faller.col = before
+                self.faller.rotate(not clockwise)
 
     def insert_virus(self, row: int, col: int, color: str) -> None:
         """
-        Insert a virus (r, b, y) at a specific cell, if empty.
+        Handle the "V row col color" command: insert a virus (r,b,y)
+        at the given cell if it’s empty.
         """
-        color = color.lower()
-        if color not in ('r', 'b', 'y'):
-            return  # Invalid color input
-        if self.field[row][col] == ' ':
-            self.field[row][col] = color
+        c = color.lower()
+        if c in ('r','b','y') and self.field[row][col] == ' ':
+            self.field[row][col] = c
 
     def get_color(self, cell: object) -> str:
-        """Extract color from a grid cell (string or tuple)."""
-        if isinstance(cell, tuple):
-            return cell[0]
-        return cell
+        """
+        Helper: extract the color character from a cell,
+        whether it's a string ('r',' ') or a tuple (('R','left')).
+        """
+        return cell[0] if isinstance(cell, tuple) else cell
 
     def check_matches(self) -> None:
         """
-        Identify and mark matches of 4+ same-color cells.
+        Identify and mark any horizontal or vertical runs of 4+
+        same‐color cells (case‐insensitive). Store positions in matched_cells.
         """
         marked = set()
 
-        # Horizontal
+        # horizontal
         for r in range(self.rows):
             c = 0
             while c <= self.cols - 4:
                 cell = self.field[r][c]
-                current = self.get_color(cell).upper()
-                if current != ' ':
-                    same = 1
-                    while c + same < self.cols and self.get_color(self.field[r][c + same]).upper() == current:
-                        same += 1
-                    if same >= 4:
-                        for i in range(same):
+                curr = (cell[0] if isinstance(cell, tuple) else cell).upper()
+                if curr != ' ':
+                    length = 1
+                    while c + length < self.cols:
+                        nxt = self.field[r][c + length]
+                        if ((nxt[0] if isinstance(nxt, tuple) else nxt).upper() == curr):
+                            length += 1
+                        else:
+                            break
+                    if length >= 4:
+                        for i in range(length):
                             marked.add((r, c + i))
-                    c += same
+                    c += length
                 else:
                     c += 1
 
-        # Vertical
+        # vertical
         for c in range(self.cols):
             r = 0
             while r <= self.rows - 4:
                 cell = self.field[r][c]
-                current = self.get_color(cell).upper()
-                if current != ' ':
-                    same = 1
-                    while r + same < self.rows and self.get_color(self.field[r + same][c]).upper() == current:
-                        same += 1
-                    if same >= 4:
-                        for i in range(same):
+                curr = (cell[0] if isinstance(cell, tuple) else cell).upper()
+                if curr != ' ':
+                    length = 1
+                    while r + length < self.rows:
+                        nxt = self.field[r + length][c]
+                        if ((nxt[0] if isinstance(nxt, tuple) else nxt).upper() == curr):
+                            length += 1
+                        else:
+                            break
+                    if length >= 4:
+                        for i in range(length):
                             marked.add((r + i, c))
-                    r += same
+                    r += length
                 else:
                     r += 1
 
@@ -248,7 +350,7 @@ class GameState:
 
     def clear_matches(self) -> None:
         """
-        Clear all matched cells from the field.
+        Remove all matched cells (set them to empty) and clear the matched list.
         """
         for r, c in self.matched_cells:
             self.field[r][c] = ' '
@@ -256,18 +358,34 @@ class GameState:
 
     def apply_gravity(self) -> None:
         """
-        Apply gravity to vitamin capsule segments after clearing.
-        Only R, Y, B fall — viruses stay in place.
-        Segments fall only one cell per step.
+        Apply exactly one step of gravity:
+        - Horizontal pairs (left+right) fall together if both below cells are empty.
+        - Single segments fall one cell if the cell below is empty.
         """
-        for c in range(self.cols):
-            # Bottom-up pass, starting from second-to-last row
-            for r in range(self.rows - 2, -1, -1):
-                current = self.field[r][c]
-                below = self.field[r + 1][c]
-                if isinstance(current, tuple) and current[0] in 'RBY' and below == ' ':
-                    self.field[r + 1][c] = current
-                    self.field[r][c] = ' '
-                elif current in 'RBY' and below == ' ':
-                    self.field[r + 1][c] = current
-                    self.field[r][c] = ' '
+        moved = set()
+        for r in range(self.rows - 2, -1, -1):
+            for c in range(self.cols):
+                if (r, c) in moved:
+                    continue
+                curr = self.field[r][c]
+
+                # Try horizontal pair first
+                if isinstance(curr, tuple) and curr[1] == 'left':
+                    if c + 1 < self.cols:
+                        right = self.field[r][c + 1]
+                        if isinstance(right, tuple) and right[1] == 'right':
+                            if self.field[r + 1][c] == ' ' and self.field[r + 1][c + 1] == ' ':
+                                # move both segments down
+                                self.field[r + 1][c]     = curr
+                                self.field[r + 1][c + 1] = right
+                                self.field[r][c]         = ' '
+                                self.field[r][c + 1]     = ' '
+                                moved |= {(r + 1, c), (r + 1, c + 1)}
+                                continue
+
+                # Otherwise, single‐segment gravity
+                color = curr[0] if isinstance(curr, tuple) else curr
+                if color in 'RBY' and self.field[r + 1][c] == ' ':
+                    self.field[r + 1][c] = curr
+                    self.field[r][c]     = ' '
+                    moved.add((r + 1, c))
