@@ -11,12 +11,18 @@ def main():
     elif init_mode == 'CONTENTS':
         for _ in range(rows):
             line = input()
+            # Ensure exactly `cols` characters: pad with spaces or truncate
+            if len(line) < cols:
+                line = line.ljust(cols)
+            else:
+                line = line[:cols]
+
             row = []
             for char in line:
                 if char in 'RBY':
-                    row.append((char, 'single'))  # Tag capsules
+                    row.append((char, 'single'))  # Tag capsule halves
                 else:
-                    row.append(char)  # Keep viruses and spaces as-is
+                    row.append(char)               # Virus ('r','b','y') or empty ' '
             contents.append(row)
 
     game = GameState(rows, cols, contents)
@@ -51,7 +57,9 @@ def main():
                     col = int(c_str)
                     game.insert_virus(row, col, color)
                 except ValueError:
-                    pass  # Ignore invalid numbers       
+                    pass  # Ignore invalid numbers
+        else:
+            pass       
         if game.game_over:
             for line in game.render():
                 print(line)
