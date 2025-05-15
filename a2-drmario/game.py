@@ -33,10 +33,8 @@ class Faller:
     def rotate(self, clockwise: bool):
         """
         Rotate the faller 90°.
-        Vertical -> horizontal: always map bottom->left and top->right.
         Horizontal -> vertical:
-          - Clockwise (A): top = right, bottom = left.
-          - Counterclockwise (B): top = left, bottom = right.
+        Reassignment changes based on orientation
         """
         if clockwise:
             if self.vertical:
@@ -194,12 +192,12 @@ class GameState:
         # bottom border
         out.append(' ' + '-'*(3*self.cols) + ' ')
 
-        # LEVEL CLEARED?
+        # LEVEL CLEARED
         if not any((cell if isinstance(cell, str) else cell[0]) in 'rby'
                    for row in self.field for cell in row):
             out.append('LEVEL CLEARED')
 
-        # GAME OVER?
+        # GAME OVER
         if self.game_over:
             out.append('GAME OVER')
 
@@ -271,13 +269,12 @@ class GameState:
             self.check_matches()
 
         # C) Gravity
-        #if self.faller != None and not self.faller.landed:
         self.apply_gravity()
 
     def rotate_faller(self, clockwise: bool) -> None:
         """
         Handle "A" (clockwise) or "B" (counterclockwise) rotation,
-        including a simple wall‐kick to the left if needed.
+        including a wall kick to the left if needed.
         """
         if not self.faller:
             return
@@ -301,7 +298,7 @@ class GameState:
     def insert_virus(self, row: int, col: int, color: str) -> None:
         """
         Handle the "V row col color" command: insert a virus (r,b,y)
-        at the given cell if it’s empty.
+        at the given cell if it's empty.
         """
         c = color.lower()
         if c in ('r','b','y') and self.field[row][col] == ' ':
@@ -317,7 +314,7 @@ class GameState:
     def check_matches(self) -> None:
         """
         Identify and mark any horizontal or vertical runs of 4+
-        same‐color cells (case‐insensitive). Store positions in matched_cells.
+        same-color cells (case-insensitive). Store positions in matched_cells.
         """
         marked = set()
 
@@ -372,7 +369,7 @@ class GameState:
         for r, c in self.matched_cells:
             cell = self.field[r][c]
 
-            # If we're deleting a capsule half, orphan its mate.
+            # If deleting a capsule half, orphan its mate.
             if isinstance(cell, tuple):
                 color, tag = cell
 
@@ -432,7 +429,7 @@ class GameState:
                     self.field[r][c]     = ' '
                     moved.add((r + 1, c))
                 """
-                # Single‐segment gravity: only for things that aren't still in a horizontal capsule
+                # Single segment gravity: only for things that aren't still in a horizontal capsule
                 if not (isinstance(curr, tuple) and curr[1] in ('left', 'right')):
                     color = curr[0] if isinstance(curr, tuple) else curr
                     if color in 'RBY' and self.field[r + 1][c] == ' ':

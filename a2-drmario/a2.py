@@ -32,7 +32,7 @@ def main():
             break
         print("Invalid mode. Please type either EMPTY or CONTENTS.")
 
-    # 4) Build the contents array as before
+    # 4) Build the contents
     contents = []
     if init_mode == 'EMPTY':
         contents = [[' ' for _ in range(cols)] for _ in range(rows)]
