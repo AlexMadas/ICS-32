@@ -207,9 +207,8 @@ class GameState:
 
     def create_faller(self, left: str, right: str) -> None:
         """
-        “F left right” — spawn a new faller horizontally at row=1, centered.
-        If **any** of the two spawn cells (row 0 or row 1 at mid/mid+1) is non-empty,
-        that's GAME OVER.
+        Spawn a new capsule at the top center or end game if blocked.
+        Format: "F left right"
         """
         if self.faller:
             return
@@ -243,9 +242,9 @@ class GameState:
     def step(self) -> None:
         """
         Advance the game by one tick (blank input):
-        1) Move or freeze the faller
-        2) If no faller, run match/clear
-        3) Then apply one-step gravity
+        A) Move or freeze the faller
+        B) If no faller, run match/clear
+        C) Then apply one-step gravity
         """
         # A) Faller logic
         if self.faller:
@@ -398,6 +397,7 @@ class GameState:
             self.field[r][c] = ' '
 
         self.matched_cells.clear()
+
     def apply_gravity(self) -> None:
         """
         Apply exactly one step of gravity:
