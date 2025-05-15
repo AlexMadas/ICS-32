@@ -1,28 +1,49 @@
 from game import GameState
 
 def main():
-    rows = int(input())
-    cols = int(input())
-    contents = []
+    # 1) Read rows (must be integer ≥4)
+    while True:
+        raw = input().strip()
+        try:
+            rows = int(raw)
+            if rows < 4:
+                print("Rows must be at least 4.")
+                continue
+            break
+        except ValueError:
+            print(f"‘{raw}’ is not a valid integer. Please enter a number.")
 
-    init_mode = input().strip()
+    # 2) Read cols (must be integer ≥3)
+    while True:
+        raw = input().strip()
+        try:
+            cols = int(raw)
+            if cols < 3:
+                print("Columns must be at least 3.")
+                continue
+            break
+        except ValueError:
+            print(f"‘{raw}’ is not a valid integer. Please enter a number.")
+
+    # 3) Read init_mode (must be EMPTY or CONTENTS)
+    while True:
+        init_mode = input().strip().upper()
+        if init_mode in ('EMPTY', 'CONTENTS'):
+            break
+        print("Invalid mode. Please type either EMPTY or CONTENTS.")
+
+    # 4) Build the contents array as before
+    contents = []
     if init_mode == 'EMPTY':
         contents = [[' ' for _ in range(cols)] for _ in range(rows)]
-    elif init_mode == 'CONTENTS':
+    else:  # CONTENTS
         for _ in range(rows):
             line = input()
-            # Ensure exactly `cols` characters: pad with spaces or truncate
             if len(line) < cols:
                 line = line.ljust(cols)
             else:
                 line = line[:cols]
-
-            row = []
-            for char in line:
-                if char in 'RBY':
-                    row.append((char, 'single'))  # Tag capsule halves
-                else:
-                    row.append(char)               # Virus ('r','b','y') or empty ' '
+            row = [(ch, 'single') if ch in 'RBY' else ch for ch in line]
             contents.append(row)
 
     game = GameState(rows, cols, contents)

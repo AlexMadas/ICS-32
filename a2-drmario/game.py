@@ -96,11 +96,27 @@ class Faller:
 
     def will_land(self, field: List[List[object]]) -> bool:
         """
-        Return True if moving down one more row would collide
-        (i.e. it's blocked and therefore should land).
+        Return True if the faller should land on the next tick.
+        Vertical fallers land when the bottom segment is blocked
+        (either out of bounds or the cell below isn't empty).
+        Horizontal fallers land when either half would collide
+        if moved down. They can only move down when both
+        halves have empty space beneath them.
         """
-        return not self.can_move(1, 0, field)
+        rows, cols = len(field), len(field[0])
 
+        if self.vertical:
+            # Only check the bottom cell
+            bottom_r, bottom_c, _ = (self.row, self.col, self.bottom)
+            nr, nc = bottom_r + 1, bottom_c
+            # Land if it'd go off the bottom or hit a non-space
+            if nr >= rows or field[nr][nc] != ' ':
+                return True
+            else:
+                return False
+        else:
+            # Existing logic: land when either half is blocked
+            return not self.can_move(1, 0, field)
 
 class GameState:
     def __init__(self, rows: int, cols: int, contents: Optional[List[List[object]]] = None):
