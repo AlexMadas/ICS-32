@@ -421,14 +421,6 @@ class GameState:
                                 self.field[r][c + 1]     = ' '
                                 moved |= {(r + 1, c), (r + 1, c + 1)}
                                 continue
-                """
-                # Otherwise, single‐segment gravity
-                color = curr[0] if isinstance(curr, tuple) else curr
-                if color in 'RBY' and self.field[r + 1][c] == ' ':
-                    self.field[r + 1][c] = curr
-                    self.field[r][c]     = ' '
-                    moved.add((r + 1, c))
-                """
                 # Single segment gravity: only for things that aren't still in a horizontal capsule
                 if not (isinstance(curr, tuple) and curr[1] in ('left', 'right')):
                     color = curr[0] if isinstance(curr, tuple) else curr
