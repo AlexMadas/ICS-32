@@ -1,6 +1,6 @@
-# NAME
-# EMAIL
-# STUDENT ID
+# Alex Madas
+# Madasa
+# 39847840
 
 import urllib
 import urllib.request
